@@ -11,7 +11,8 @@ import {
     Input,
     Slide,
     Text,
-    VStack
+    VStack,
+    View
 } from 'native-base';
 import React, { memo, useContext, useState } from 'react';
 import {
@@ -22,6 +23,9 @@ import {
 } from 'react-native';
 import { Context } from '../../App';
 import { FooterView } from '../components';
+import Modal from 'react-native-modal';
+import { es } from 'chrono-node';
+
 
 /**
  * Type for login form data
@@ -77,6 +81,126 @@ const LoginScreen = () => {
             );
         }
     };
+
+    //RESET PASSWORD
+
+    const [isModalVisible, setModalVisible] = useState(false);
+    const [email, setEmail] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [isEmailValid, setEmailValid] = useState(false);
+    const [showModalAlert, setShowModalAlert] = useState<boolean>(false);
+    const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+
+
+
+  
+    const toggleModal = () => {
+      setModalVisible(!isModalVisible);     
+    };
+
+    const handleSendEmail=async()=>{
+        // Reset ModalAlert and remove clear callbacks
+        setShowModalAlert(false);
+        timeouts.forEach((timeout) => {
+            clearTimeout(timeout);
+            timeouts.pop();
+        });
+
+        // 'https://cis-linux2.temple.edu/bucketlistBackend/check_email',
+
+        try {
+            const result = await axios.post(
+                'http://localhost:5000/check_email',
+                {
+                    email:email
+                }
+            );
+
+            if(result.data.emailExists){
+                setEmailValid(true);
+            }else{
+                setShowModalAlert(true);
+                timeouts.push(
+                    setTimeout(() => {
+                        setShowModalAlert(false);
+                    }, 3000)
+                );
+            }
+
+
+        } catch (error) {
+            // Show ModalAlert and set timeout to clear slider
+              setShowModalAlert(true);
+            timeouts.push(
+                setTimeout(() => {
+                    setShowModalAlert(false);
+                }, 3000)
+            );
+        }
+
+
+        //HARD CODED FOR TESTING
+
+        // if(email=="1@gmail.com"){
+        //     setEmailValid(true);
+        // }else{
+        //     setShowModalAlert(true);
+        //     timeouts.push(
+        //         setTimeout(() => {
+        //             setShowModalAlert(false);
+        //         }, 3000)
+        //     );
+        // }
+
+    }
+  
+    const handleResetPassword =async () => {
+      // Implement your reset password logic here
+
+    //   'https://cis-linux2.temple.edu/bucketlistBackend/reset_password',
+
+         try {
+            const result = await axios.post(
+                'http://localhost:5000/reset_password',
+                {
+                    email:email,
+                    newPassword:newPassword                  
+                }
+            );
+
+            if(result.data == 'OK'){
+                setShowSuccessAlert(true);
+                timeouts.push(
+                    setTimeout(() => {
+                        setShowSuccessAlert(false);
+                    }, 3000)
+                );
+
+                toggleModal();
+
+                 setEmail("");
+                 setNewPassword("");
+                 setEmailValid(false);
+            }
+
+
+        } catch (error) {
+              console.log(error);
+        }
+
+
+        console.log(`Reset password for email: ${email}`);
+
+          //HARD CODED FOR TESTING
+
+        // if(newPassword != ""){
+        //     toggleModal();
+        //     setNewPassword("");
+        // }
+
+    };
+
+  
 
     return (
         <ScrollView contentContainerStyle={styles.container}>
@@ -140,6 +264,7 @@ const LoginScreen = () => {
                                 >
                                     Log in
                                 </Button>
+
                                 <HStack>
                                     <Text>Don't have an account? </Text>
                                     <Text
@@ -150,8 +275,86 @@ const LoginScreen = () => {
                                     >
                                         Sign up
                                     </Text>
-                                </HStack>
+                                </HStack>   
+
+                                    {/* RESET PASSWORD */}
+
+
+                                <HStack>
+                                    <Text>Forget password? </Text>
+                                    <Text
+                                        onPress={toggleModal}
+                                        underline
+                                    >
+                                        Reset
+                                    </Text>
+                                </HStack>   
+
+                              
+                                <Modal isVisible={isModalVisible}>
+                            <Center>
+                                    {showModalAlert &&(
+                                    <Alert justifyContent="center" status="error">
+                                        <Alert.Icon />
+                                        <Text color="error.600" fontWeight="medium">
+                                            Invalid Email
+                                        </Text>
+                                    </Alert>
+                                    )}
+
+
+                                    <VStack bg="white" p={5} rounded="lg">
+                                    <Text>Please enter your email:</Text>
+                                    <Input
+                                        mt={2}
+                                        placeholder="Email"
+                                        value={email}
+                                        onChangeText={(text) => setEmail(text)}
+                                    />
+                                    
+                                    {!isEmailValid &&( 
+                                    <Button
+                                    onPress={handleSendEmail}
+                                    mt="2"
+                                    colorScheme="indigo"
+                                    width={'100'}
+                                    >
+                                        Send
+                                    </Button>
+                                )} 
+                               
+                                {isEmailValid && (
+                                  <FormControl isRequired>
+                                    <FormControl.Label>
+                                      New Password
+                                    </FormControl.Label>
+                                    <Input
+                                        size="lg"
+                                        type="password"
+                                        value={newPassword}
+                                        onChangeText={(text) => setNewPassword(text)}
+                                        
+                                    />
+                                </FormControl>
+                                )}
+
+                                    <HStack mt={3}>
+                                    {isEmailValid && (    
+                                        <Button onPress={handleResetPassword} mr={3}>
+                                        Reset Password
+                                        </Button>
+                                    )}
+                                        <Button onPress={toggleModal} variant="ghost">
+                                        Cancel
+                                        </Button>
+                                    </HStack>
+                                    </VStack>
+                              </Center>
+                                </Modal>
+                              
                             </VStack>
+
+
                         </Box>
                         <Slide in={showAlert} placement="top">
                             <Alert justifyContent="center" status="error">
@@ -161,11 +364,22 @@ const LoginScreen = () => {
                                 </Text>
                             </Alert>
                         </Slide>
+
+                        <Slide in={showSuccessAlert} placement="top">
+                        <Alert justifyContent="center" status="success">
+                            <Alert.Icon />
+                            <Text color="success.600" fontWeight="medium">
+                            Success! Password Changed.
+                            </Text>
+                        </Alert>
+                        </Slide>
                     </Center>
-                </VStack>
+
                 <Center position="fixed" bottom="0" alignSelf="center">
                     <FooterView />
                 </Center>
+
+                </VStack>                
             </KeyboardAvoidingView>
         </ScrollView>
     );
